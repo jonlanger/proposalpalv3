@@ -1,6 +1,6 @@
 "use client";
 
-import { Bookmark, ChevronDown, Database, FolderOpen, History, Plus, RefreshCw, Settings, Trash2 } from "lucide-react";
+import { Bookmark, ChevronDown, Database, Download, FolderOpen, History, Plus, RefreshCw, Settings, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Hint } from "@/components/hint";
 import { Button } from "@/components/ui/button";
@@ -45,13 +45,13 @@ export function Toolbar() {
   const canRegenerate = mod && mod.kind !== "polish" && !isRunning(mod.id);
 
   return (
-    <div className="no-print flex h-[52px] shrink-0 items-center gap-1 border-b bg-background px-3">
+    <div className="no-print flex h-[52px] shrink-0 items-center gap-1 overflow-x-auto border-b bg-background px-2 sm:px-3">
       <Hint label="Toggle data sources sidebar">
-        <Button variant="ghost" className={cn(leftPanel === "sources" && "bg-muted")} onClick={() => setLeftPanel(leftPanel === "sources" ? null : "sources")}>
+        <Button variant="ghost" className={cn("max-lg:hidden", leftPanel === "sources" && "bg-muted")} onClick={() => setLeftPanel(leftPanel === "sources" ? null : "sources")}>
           <Database /> Data Sources
         </Button>
       </Hint>
-      <span className="mx-1 h-5 w-px bg-border" />
+      <span className="mx-1 h-5 w-px bg-border max-lg:hidden" />
       <Hint label="Start a new chat conversation">
         <Button variant="ghost" size="icon" onClick={() => setThreadId(null)} aria-label="New chat">
           <Plus />
@@ -86,7 +86,7 @@ export function Toolbar() {
                   <Button
                     variant="ghost"
                     size="icon-xs"
-                    className="opacity-0 group-hover:opacity-100"
+                    className="opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
                     aria-label="Delete chat"
                     onClick={() => {
                       setThreads((all) => all.filter((x) => x.id !== t.id));
@@ -107,22 +107,23 @@ export function Toolbar() {
           className={cn("ml-1", selected === "overview" && "bg-accent text-accent-foreground")}
           onClick={() => select("overview")}
         >
-          <FolderOpen /> Proposal Overview
+          <FolderOpen /> <span className="max-sm:hidden">Proposal Overview</span>
         </Button>
       </Hint>
 
-      <div className="ml-auto flex items-center gap-1">
+      <div className="ml-auto flex shrink-0 items-center gap-1">
         <Button variant="ghost" disabled={!canRegenerate} onClick={() => mod && generate(mod.id)}>
-          <RefreshCw className={mod && isRunning(mod.id) ? "animate-spin" : ""} /> Regenerate
+          <RefreshCw className={mod && isRunning(mod.id) ? "animate-spin" : ""} /> <span className="max-md:hidden">Regenerate</span>
         </Button>
         <Hint label="Toggle bookmarks panel">
-          <Button variant="ghost" className={cn(showBookmarks && "bg-muted")} onClick={() => setShowBookmarks(!showBookmarks)}>
+          <Button variant="ghost" className={cn("max-lg:hidden", showBookmarks && "bg-muted")} onClick={() => setShowBookmarks(!showBookmarks)}>
             <Bookmark /> Bookmarks
           </Button>
         </Hint>
         <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="ghost" />}>
-            Export <ChevronDown />
+          <DropdownMenuTrigger render={<Button variant="ghost" aria-label="Export" />}>
+            <Download className="sm:hidden" />
+            <span className="max-sm:hidden">Export</span> <ChevronDown className="max-sm:hidden" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuItem

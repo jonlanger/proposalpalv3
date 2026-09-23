@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { ArrowDownUp, EllipsisVertical, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/app-header";
+import { DotGrid, hashSeed } from "@/components/dot-grid";
 import { Hint } from "@/components/hint";
 import { TeamAvatars } from "@/components/team-avatars";
 import { Button } from "@/components/ui/button";
@@ -58,14 +59,21 @@ export default function HomePage() {
   return (
     <div className="flex min-h-screen flex-col">
       <AppHeader />
-      <section className="relative overflow-hidden bg-background bg-dots">
-        <div className="mx-auto flex max-w-4xl flex-col items-center px-4 py-12 text-center sm:py-16">
-          <h1 className="text-5xl font-bold tracking-tight sm:text-7xl">
+      <section className="relative overflow-hidden bg-background">
+        <DotGrid
+          gap={18}
+          dotSize={2.5}
+          proximity={140}
+          shockRadius={220}
+          className="[mask-image:radial-gradient(ellipse_at_center,black_35%,transparent_85%)]"
+        />
+        <div className="relative mx-auto flex max-w-4xl flex-col items-center px-4 py-12 text-center sm:py-16">
+          <h1 className="text-[2.75rem] font-bold leading-[1.05] tracking-tight sm:text-7xl">
             Welcome to
             <br />
             ProposalPal
           </h1>
-          <p className="mt-5 max-w-xl text-lg text-muted-foreground">
+          <p className="mt-5 max-w-xl text-base text-muted-foreground sm:text-lg">
             Your one-stop AI proposal partner that unifies research, content, teaming, and commercial strategy to
             create a winning proposal.
           </p>
@@ -88,12 +96,12 @@ export default function HomePage() {
 
       <section className="flex-1 bg-surface px-4 py-6 sm:px-5">
         <div className="mb-5 flex flex-wrap items-center gap-2">
-          <h2 className="mr-auto text-xl font-semibold">Proposals</h2>
+          <h2 className="w-full text-xl font-semibold sm:mr-auto sm:w-auto">Proposals</h2>
           <Input
             placeholder="Search Proposals..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="h-8 w-full bg-background sm:w-50"
+            className="h-8 min-w-0 flex-1 bg-background sm:w-50 sm:flex-none"
           />
           <DropdownMenu>
             <Hint label="Sort">
@@ -169,12 +177,12 @@ export default function HomePage() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           <Link
             href="/new-proposal"
-            className="group flex min-h-[330px] flex-col overflow-hidden rounded-lg border-2 border-dashed border-border bg-background shadow-sm transition hover:border-brand"
+            className="group flex overflow-hidden rounded-lg border-2 border-dashed border-border bg-background shadow-sm transition hover:border-brand max-sm:items-center sm:min-h-[330px] sm:flex-col"
           >
-            <div className="flex h-[120px] items-center justify-center bg-muted/60">
-              <Plus className="size-10 text-muted-foreground transition group-hover:text-brand" strokeWidth={1.5} />
+            <div className="flex items-center justify-center bg-muted/60 max-sm:size-20 max-sm:shrink-0 sm:h-[120px]">
+              <Plus className="size-8 text-muted-foreground transition group-hover:text-brand sm:size-10" strokeWidth={1.5} />
             </div>
-            <div className="flex flex-1 flex-col items-center justify-center text-center">
+            <div className="flex flex-1 flex-col justify-center max-sm:px-4 sm:items-center sm:text-center">
               <div className="text-lg font-semibold">New Proposal</div>
               <div className="mt-1 text-sm text-muted-foreground">Start a new proposal project</div>
             </div>
@@ -189,11 +197,31 @@ export default function HomePage() {
   );
 }
 
+/** Each card gets its own deterministic dot pattern: gap, density, size variation and fade direction. */
+function CardDots({ id }: { id: string }) {
+  const seed = hashSeed(id);
+  const r = (n: number) => ((seed >>> n) & 0xff) / 255;
+  return (
+    <div className="relative h-24 overflow-hidden sm:h-[120px]">
+      <DotGrid
+        seed={seed}
+        gap={10 + Math.round(r(0) * 8)}
+        dotSize={1.8 + r(8) * 1.4}
+        density={0.45 + r(16) * 0.5}
+        sizeJitter={r(4) * 0.6}
+        fadeAngle={r(24) > 0.25 ? r(12) * Math.PI * 2 : undefined}
+        proximity={90}
+        shockRadius={120}
+      />
+    </div>
+  );
+}
+
 function ProposalCard({ proposal: p }: { proposal: Proposal }) {
   return (
-    <div className="group relative flex min-h-[330px] flex-col overflow-hidden rounded-lg border bg-card shadow-sm transition hover:shadow-md">
+    <div className="group relative flex flex-col overflow-hidden rounded-lg border bg-card shadow-sm transition hover:shadow-md sm:min-h-[330px]">
       <Link href={`/proposal/${p.id}/setup`} className="flex flex-1 flex-col">
-        <div className="h-[120px] bg-dots" />
+        <CardDots id={p.id} />
         <div className="flex flex-1 flex-col p-5">
           <h3 className="line-clamp-3 text-lg font-semibold leading-snug">{p.proposalName}</h3>
           <p className="mt-3 text-sm text-muted-foreground">{p.clientName}</p>
@@ -209,7 +237,7 @@ function ProposalCard({ proposal: p }: { proposal: Proposal }) {
             <Button
               variant="ghost"
               size="icon-sm"
-              className="absolute right-2 top-2 opacity-0 transition group-hover:opacity-100 data-[popup-open]:opacity-100"
+              className="absolute right-2 top-2 opacity-0 transition group-hover:opacity-100 data-[popup-open]:opacity-100 [@media(hover:none)]:opacity-100"
               aria-label="Proposal options"
             />
           }

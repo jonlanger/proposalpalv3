@@ -100,7 +100,7 @@ export function ChatPanel() {
           id: uid(),
           role: "assistant",
           content: result
-            ? `# Proposal Analysis Complete\n\n**Score:** ${result.score}/100\n\n${result.overallAssessment}\n\nSee the section-by-section feedback in the panel on the right.`
+            ? `# Proposal Analysis Complete\n\n**Score:** ${result.score}/100\n\n${result.overallAssessment}\n\nSee the section-by-section feedback in the Polish Proposal content panel.`
             : "I couldn't analyze that file. Please try again.",
           createdAt: Date.now(),
         },
@@ -164,7 +164,7 @@ export function ChatPanel() {
   const welcomeTitle = mod ? mod.title : `Welcome to ${proposal.proposalName}`;
   const welcomeBody = mod
     ? mod.intro
-    : `Let's build a compelling proposal for **${proposal.clientName}**.\n\n${OVERVIEW_INTRO}`;
+    : `Let's build a compelling proposal for **${proposal.clientName.replace(/\.$/, "")}**.\n\n${OVERVIEW_INTRO}`;
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">

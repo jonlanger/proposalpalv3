@@ -18,7 +18,7 @@ function PanelHeader({ title, onClose, children }: { title: string; onClose: () 
     <div className="flex items-center gap-2 px-3 pb-2 pt-3">
       <h2 className="flex-1 text-sm font-semibold">{title}</h2>
       {children}
-      <Button variant="ghost" size="icon-xs" onClick={onClose} aria-label="Close panel" className="text-brand">
+      <Button variant="ghost" size="icon-xs" onClick={onClose} aria-label="Close panel" className="text-brand max-lg:hidden">
         <X />
       </Button>
     </div>

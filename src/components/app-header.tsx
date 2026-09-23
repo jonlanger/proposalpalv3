@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, FileText, House, LifeBuoy, Moon, Pencil, Sun } from "lucide-react";
+import { ChevronRight, House, LifeBuoy, Moon, Pencil, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Hint } from "@/components/hint";
+import { Logo } from "@/components/logo";
+import { cn } from "@/lib/utils";
 import { CURRENT_USER } from "@/lib/seed";
 
 export interface Crumb {
@@ -17,21 +19,19 @@ export interface Crumb {
 export function AppHeader({ crumbs = [] }: { crumbs?: Crumb[] }) {
   const { resolvedTheme, setTheme } = useTheme();
   return (
-    <header className="no-print sticky top-0 z-40 flex h-[50px] shrink-0 items-center gap-3 border-b bg-background px-4">
-      <Link href="/" className="flex items-center gap-2.5">
-        <span className="flex size-7 items-center justify-center rounded-md bg-brand text-white" aria-hidden>
-          <FileText className="size-4" strokeWidth={2.25} />
-        </span>
-        <span className="font-semibold">ProposalPal</span>
+    <header className="no-print sticky top-0 z-40 flex h-[50px] shrink-0 items-center gap-2 border-b bg-background px-3 sm:gap-3 sm:px-4">
+      <Link href="/" className="flex shrink-0 items-center gap-2" aria-label="ProposalPal home">
+        <Logo />
+        <span className={cn("font-semibold tracking-tight", crumbs.length > 0 && "max-sm:hidden")}>ProposalPal</span>
       </Link>
       <nav className="flex min-w-0 items-center gap-2 text-sm">
         <Hint label="Home">
-          <Link href="/" className="ml-3 rounded p-1 text-brand hover:bg-muted" aria-label="Home">
+          <Link href="/" className="rounded p-1 text-brand hover:bg-muted sm:ml-3" aria-label="Home">
             <House className="size-4" />
           </Link>
         </Hint>
         {crumbs.map((c, i) => (
-          <span key={i} className="flex min-w-0 items-center gap-2">
+          <span key={i} className={cn("flex min-w-0 items-center gap-2", i < crumbs.length - 1 && "max-sm:hidden")}>
             <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
             {c.href ? (
               <Link href={c.href} className="flex items-center gap-1.5 truncate text-brand hover:underline">
@@ -44,7 +44,7 @@ export function AppHeader({ crumbs = [] }: { crumbs?: Crumb[] }) {
           </span>
         ))}
       </nav>
-      <div className="ml-auto flex items-center gap-1">
+      <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1">
         <Hint label="Toggle theme">
           <Button
             variant="ghost"

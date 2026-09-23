@@ -110,24 +110,40 @@ function BookmarkableArea({ moduleId, children }: { moduleId: ModuleId; children
   const [pending, setPending] = useState<{ text: string; x: number; y: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
+  // Works for mouse drags and touch long-press selection alike: follow the document selection.
+  useEffect(() => {
+    let timer = 0;
+    const onChange = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        const el = ref.current;
+        const sel = window.getSelection();
+        const text = sel?.toString().trim() ?? "";
+        if (!el || !sel || sel.rangeCount === 0 || text.length <= 8 || !el.contains(sel.anchorNode)) {
+          setPending(null);
+          return;
+        }
+        const rect = sel.getRangeAt(0).getBoundingClientRect();
+        const box = el.getBoundingClientRect();
+        setPending({ text, x: rect.left + rect.width / 2 - box.left, y: rect.bottom - box.top + el.scrollTop });
+      }, 150);
+    };
+    document.addEventListener("selectionchange", onChange);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("selectionchange", onChange);
+    };
+  }, []);
+
   return (
-    <div
-      ref={ref}
-      className="relative h-full overflow-y-auto"
-      onMouseUp={(e) => {
-        const text = window.getSelection()?.toString().trim() ?? "";
-        const box = ref.current!.getBoundingClientRect();
-        setPending(text.length > 8 ? { text, x: e.clientX - box.left, y: e.clientY - box.top + ref.current!.scrollTop } : null);
-      }}
-    >
+    <div ref={ref} className="relative h-full overflow-y-auto">
       {children}
       {pending && (
         <Button
           size="sm"
-          className="absolute z-20 shadow-lg"
-          style={{ left: Math.max(8, pending.x - 50), top: pending.y + 12 }}
-          onMouseDown={(e) => e.preventDefault()}
-          onMouseUp={(e) => e.stopPropagation()}
+          className="absolute z-20 -translate-x-1/2 shadow-lg"
+          style={{ left: Math.max(60, pending.x), top: pending.y + 10 }}
+          onPointerDown={(e) => e.preventDefault()}
           onClick={() => {
             setBookmarks((b) => [{ id: uid(), text: pending.text, moduleId, createdAt: Date.now() }, ...b]);
             window.getSelection()?.removeAllRanges();

@@ -16,7 +16,7 @@ export function BookmarksPanel() {
       <div className="flex items-center gap-2 border-b px-4 py-3">
         <BookmarkIcon className="size-4 text-brand" />
         <h2 className="flex-1 font-semibold">Bookmarks</h2>
-        <Button variant="ghost" size="icon-xs" onClick={() => setShowBookmarks(false)} aria-label="Close bookmarks">
+        <Button variant="ghost" size="icon-xs" onClick={() => setShowBookmarks(false)} aria-label="Close bookmarks" className="max-lg:hidden">
           <X />
         </Button>
       </div>

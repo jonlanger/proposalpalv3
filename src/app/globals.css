@@ -153,7 +153,7 @@
   .prose-pp blockquote { @apply border-l-2 border-brand/50 pl-3 text-muted-foreground; }
   .prose-pp code { @apply rounded bg-muted px-1 py-0.5 font-mono text-[0.85em]; }
   .prose-pp pre { @apply overflow-x-auto rounded-md bg-muted p-3; }
-  .prose-pp table { @apply w-full border-collapse text-left text-xs; }
+  .prose-pp table { @apply block w-full max-w-full overflow-x-auto border-collapse text-left text-xs; }
   .prose-pp th, .prose-pp td { @apply border border-border px-2 py-1 align-top; }
   .prose-pp th { @apply bg-muted font-semibold; }
 }

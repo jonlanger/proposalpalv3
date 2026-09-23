@@ -125,14 +125,14 @@ export function ProposalSetup({ initial, isNew, onChange }: Props) {
   return (
     <div className="flex-1 bg-surface">
       <div className="mx-auto max-w-[1400px] px-3 py-6">
-        <div className="mb-6 flex items-center justify-between gap-4">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-xl font-semibold">{isNew ? "New Proposal" : "Proposal Details"}</h1>
-          <Button size="lg" className="h-9 px-6" disabled={!requiredOk(p) || (!isNew && editingRequired)} onClick={goToWorkspace}>
+          <Button size="lg" className="h-9 px-6 max-sm:w-full" disabled={!requiredOk(p) || (!isNew && editingRequired)} onClick={goToWorkspace}>
             Go to Proposal Workspace
           </Button>
         </div>
 
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           {/* Required information */}
           <Panel
             title="Required Information"
@@ -217,7 +217,7 @@ export function ProposalSetup({ initial, isNew, onChange }: Props) {
             )}
           </Panel>
 
-          <div className="space-y-5">
+          <div className="min-w-0 space-y-5">
             {/* Proposal details */}
             <Panel
               title="Proposal Details"
@@ -298,9 +298,9 @@ export function ProposalSetup({ initial, isNew, onChange }: Props) {
 
 function Panel({ title, subtitle, action, children }: { title: string; subtitle: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className="rounded-lg border bg-card p-5 shadow-sm">
-      <div className="mb-6 flex items-start justify-between gap-3">
-        <div>
+    <section className="min-w-0 rounded-lg border bg-card p-4 shadow-sm sm:p-5">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
           <h2 className="font-semibold">{title}</h2>
           <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
         </div>
@@ -327,7 +327,7 @@ function Row({ label, value, wide }: { label: string; value?: React.ReactNode; w
   return (
     <div className={cn("flex gap-6 text-sm", wide ? "items-start" : "items-center justify-between")}>
       <dt className="shrink-0 text-muted-foreground">{label}</dt>
-      <dd className={cn(wide ? "flex-1 text-left" : "text-right")}>{value || "—"}</dd>
+      <dd className={cn("min-w-0 break-words", wide ? "flex-1 text-left" : "text-right")}>{value || "—"}</dd>
     </div>
   );
 }
