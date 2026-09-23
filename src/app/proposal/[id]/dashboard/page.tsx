@@ -13,7 +13,8 @@ import { DataSourcesPanel, GeneratedFilesPanel, SystemTasksPanel } from "@/compo
 import { ModulePanel } from "@/components/workspace/module-panel";
 import { DARK_CHAT_KEY, Toolbar } from "@/components/workspace/toolbar";
 import { useWorkspace, WorkspaceProvider, type LeftPanel } from "@/components/workspace/workspace-context";
-import { isDemoProposal, keys, seedDemoContent, useHydrated, useProposal, useStored } from "@/lib/storage";
+import { isDemoProposal, keys, seedDemoContent, useBookmarks, useHydrated, useProposal, useStored } from "@/lib/storage";
+import { SelectionMenu } from "@/components/workspace/selection-menu";
 import { cn } from "@/lib/utils";
 
 export default function DashboardPage({ params }: PageProps<"/proposal/[id]/dashboard">) {
@@ -38,6 +39,7 @@ export default function DashboardPage({ params }: PageProps<"/proposal/[id]/dash
       <WorkspaceProvider proposal={proposal}>
         <Toolbar />
         <Workspace />
+        <SelectionMenu />
       </WorkspaceProvider>
     </div>
   );
@@ -58,24 +60,31 @@ type MobileView = "chat" | "content" | "sources" | "bookmarks";
 
 /** Phones and tablets: one full-width pane at a time, switched from a bottom tab bar. */
 function MobileWorkspace() {
-  const { selected, leftPanel, setLeftPanel, tasks } = useWorkspace();
+  const { proposal, selected, leftPanel, setLeftPanel, tasks, chatQuote } = useWorkspace();
+  const [bookmarks] = useBookmarks(proposal.id);
   const [darkChat] = useStored<boolean>(DARK_CHAT_KEY, true);
   const [view, setView] = useState<MobileView>("chat");
   const [prevSelected, setPrevSelected] = useState(selected);
+  const [prevQuote, setPrevQuote] = useState(chatQuote);
   // Picking a module jumps straight to its content.
   if (selected !== prevSelected) {
     setPrevSelected(selected);
     setView(selected === "overview" ? "chat" : "content");
   }
+  // "Ask AI" on highlighted text jumps to the chat composer.
+  if (chatQuote !== prevQuote) {
+    setPrevQuote(chatQuote);
+    if (chatQuote) setView("chat");
+  }
   const hasModule = selected !== "overview";
   const running = tasks.some((t) => t.status === "running");
   const panel = leftPanel ?? "sources";
 
-  const tabs: { id: MobileView; label: string; icon: typeof Database; disabled?: boolean; dot?: boolean }[] = [
+  const tabs: { id: MobileView; label: string; icon: typeof Database; disabled?: boolean; dot?: boolean; count?: number }[] = [
     { id: "chat", label: "Chat", icon: MessageSquare },
     { id: "content", label: "Content", icon: LayoutList, disabled: !hasModule, dot: running },
     { id: "sources", label: "Sources", icon: Database },
-    { id: "bookmarks", label: "Bookmarks", icon: Bookmark },
+    { id: "bookmarks", label: "Bookmarks", icon: Bookmark, count: bookmarks.length },
   ];
 
   return (
@@ -125,6 +134,9 @@ function MobileWorkspace() {
             <t.icon className="size-5" />
             {t.label}
             {t.dot && <span className="absolute right-[30%] top-1.5 size-2 animate-pulse rounded-full bg-brand-bright" />}
+            {!!t.count && (
+              <span className="absolute right-[26%] top-1 min-w-4 rounded-full bg-brand px-1 text-[10px] leading-4 text-white">{t.count}</span>
+            )}
           </button>
         ))}
       </nav>

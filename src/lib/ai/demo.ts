@@ -1,5 +1,6 @@
 import "server-only";
 import type { SectionDef } from "@/lib/modules";
+import type { StoryBookmark } from "./prompts";
 import type { Person, PolishAnalysis, Proposal, Slide, StorylineSection, TeamFormationResult } from "@/lib/types";
 
 /**
@@ -31,14 +32,22 @@ export function demoSections(p: Partial<Proposal>, sections: SectionDef[]): Reco
   );
 }
 
-export function demoStoryline(p: Partial<Proposal>, sections: SectionDef[]): StorylineSection[] {
-  return sections.map((s) => ({
+export function demoStoryline(p: Partial<Proposal>, sections: SectionDef[], bookmarks?: StoryBookmark[]): StorylineSection[] {
+  return sections.map((s, i) => ({
     name: s.title,
-    slides: [demoSlide(p, s.title, 1), demoSlide(p, s.title, 2)],
+    slides: [demoSlide(p, s.title, 1, i === 0 ? bookmarks : undefined), demoSlide(p, s.title, 2)],
   }));
 }
 
-export function demoSlide(p: Partial<Proposal>, section: string, n = 1): Slide {
+export function demoSlide(p: Partial<Proposal>, section: string, n = 1, bookmarks?: StoryBookmark[]): Slide {
+  if (bookmarks?.length) {
+    return {
+      title: `${section}: what the team flagged about ${client(p)} (sample built from ${bookmarks.length} bookmark${bookmarks.length === 1 ? "" : "s"})`,
+      bullets: bookmarks
+        .slice(0, 5)
+        .map((b) => `${b.text.replace(/[*_#>`]/g, "").replace(/^\s*-\s*/gm, "").replace(/\s+/g, " ").trim().slice(0, 140)} (${b.section ?? b.module})`),
+    };
+  }
   return {
     title: `${section}: ${client(p)} can unlock value from ${topic(p).toLowerCase()} (sample ${n})`,
     bullets: [
@@ -107,6 +116,8 @@ export function demoSources(p: Partial<Proposal>) {
   ];
 }
 
-export function demoChat(p: Partial<Proposal>, question: string) {
+export function demoChat(p: Partial<Proposal>, message: string) {
+  // Leave out any quoted text from "Ask AI"; echo only the question itself.
+  const question = message.split("\n").filter((l) => !l.startsWith(">")).join(" ").trim();
   return `${NOTE}\n\nYou asked: _"${question.slice(0, 200)}"_\n\nFor **${client(p)}**, I'd start by aligning on the client's top priorities, then map them to our approach and value case. Connect an AI provider and I'll answer this properly.`;
 }

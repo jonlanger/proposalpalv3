@@ -58,6 +58,12 @@ export interface Bookmark {
   id: string;
   text: string;
   moduleId: ModuleId | "overview";
+  /** "section" = a whole module section; "selection" = highlighted text; "chat" = an assistant reply. */
+  source?: "section" | "selection" | "chat";
+  sectionId?: string;
+  sectionTitle?: string;
+  /** Feeds the Storyline & Proposal module (default true). */
+  includeInStoryline?: boolean;
   createdAt: number;
 }
 
@@ -123,5 +129,7 @@ export interface ModuleContent {
   storyline?: StorylineSection[];
   team?: TeamFormationResult;
   polish?: PolishAnalysis;
+  /** Bookmarks that fed this content (storyline), to detect new ones since. */
+  bookmarkIds?: string[];
   generatedAt: number;
 }

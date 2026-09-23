@@ -95,9 +95,25 @@ Return a JSON object whose keys are exactly these section ids, each value a mark
 ${spec}`;
 }
 
-export function storylinePrompt(sections: SectionDef[], ctx: string, research?: string) {
+export interface StoryBookmark {
+  module: string;
+  section?: string;
+  text: string;
+}
+
+/** Team-flagged insights the storyline should be built around. */
+function bookmarksBlock(bookmarks?: StoryBookmark[]) {
+  if (!bookmarks?.length) return "";
+  const items = bookmarks
+    .slice(0, 25)
+    .map((b, i) => `[B${i + 1}] (${b.module}${b.section ? ` › ${b.section}` : ""}) ${b.text.replace(/\s+/g, " ").slice(0, 600)}`)
+    .join("\n");
+  return `\n\nTEAM BOOKMARKS – insights the proposal team flagged as important. Build the storyline around them: turn the strongest into slide action titles or supporting bullets, and use every bookmark at least once where relevant. Do not quote them verbatim if a sharper phrasing works.\n${items}`;
+}
+
+export function storylinePrompt(sections: SectionDef[], ctx: string, research?: string, bookmarks?: StoryBookmark[]) {
   const spec = sections.map((s) => `- "${s.title}": ${s.guidance}`).join("\n");
-  return `${ctx}${research ? `\n\nClient research summary:\n${research.slice(0, 3000)}` : ""}
+  return `${ctx}${research ? `\n\nClient research summary:\n${research.slice(0, 3000)}` : ""}${bookmarksBlock(bookmarks)}
 
 Task: draft the proposal storyline as slides. Sections, in this order:
 ${spec}
@@ -106,8 +122,8 @@ Return JSON: {"sections":[{"name":"<section name exactly as above>","slides":[{"
 Use 2-3 slides per section and 3-5 bullets per slide.`;
 }
 
-export function slidePrompt(section: string, slideTitle: string, ctx: string) {
-  return `${ctx}
+export function slidePrompt(section: string, slideTitle: string, ctx: string, bookmarks?: StoryBookmark[]) {
+  return `${ctx}${bookmarksBlock(bookmarks)}
 
 Task: rewrite one slide in the "${section}" section of the proposal storyline. The current title is: "${slideTitle}".
 Make it sharper and more specific to the client. Return JSON: {"title":"...","bullets":["...", "..."]} with 3-5 bullets.`;

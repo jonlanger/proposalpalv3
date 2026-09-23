@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { completeJSON, errorResponse, isDemo } from "@/lib/ai/provider";
 import { demoPolish, demoSections, demoSlide, demoStoryline, demoTeam } from "@/lib/ai/demo";
-import { PERSONA, polishPrompt, proposalContext, sectionsPrompt, slidePrompt, storylinePrompt, teamPrompt } from "@/lib/ai/prompts";
+import { PERSONA, polishPrompt, type StoryBookmark, proposalContext, sectionsPrompt, slidePrompt, storylinePrompt, teamPrompt } from "@/lib/ai/prompts";
 import { MODULE_MAP } from "@/lib/modules";
 import { PEOPLE_DIRECTORY } from "@/lib/seed";
 import type { ModuleId, PolishAnalysis, Proposal, Slide, StorylineSection, TeamFormationResult } from "@/lib/types";
@@ -18,6 +18,8 @@ interface Body {
   clientResearch?: string;
   /** Draft proposal text for Polish Proposal. */
   draft?: string;
+  /** Team bookmarks that should shape the storyline. */
+  bookmarks?: StoryBookmark[];
 }
 
 export async function POST(req: NextRequest, ctx: RouteContext<"/api/modules/[module]">) {
@@ -47,16 +49,16 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/modules/[mo
 
       case "storyline": {
         if (body.slide) {
-          if (demo) return Response.json({ slide: demoSlide(p, body.slide.section) });
+          if (demo) return Response.json({ slide: demoSlide(p, body.slide.section, 1, body.bookmarks) });
           const slide = await completeJSON<Slide>({
-            messages: [system, { role: "user", content: slidePrompt(body.slide.section, body.slide.title, context) }],
+            messages: [system, { role: "user", content: slidePrompt(body.slide.section, body.slide.title, context, body.bookmarks) }],
             maxTokens: 1200,
           });
           return Response.json({ slide: normalizeSlide(slide) });
         }
-        if (demo) return Response.json({ sections: demoStoryline(p, mod.sections) });
+        if (demo) return Response.json({ sections: demoStoryline(p, mod.sections, body.bookmarks) });
         const data = await completeJSON<{ sections: StorylineSection[] }>({
-          messages: [system, { role: "user", content: storylinePrompt(mod.sections, context, body.clientResearch) }],
+          messages: [system, { role: "user", content: storylinePrompt(mod.sections, context, body.clientResearch, body.bookmarks) }],
           maxTokens: 5000,
         });
         // Keep the canonical section order and names even if the model drifts.
@@ -104,8 +106,11 @@ function toMarkdown(v: unknown): string {
   return "No content generated.";
 }
 
+/** Slides are plain text: drop markdown emphasis or list markers the model may add. */
+const plain = (x: unknown) => String(x ?? "").replace(/\*\*|__|`/g, "").replace(/^\s*[-*•]\s+/, "").trim();
+
 function normalizeSlide(s: Partial<Slide>): Slide {
-  return { title: String(s?.title ?? "Untitled slide"), bullets: Array.isArray(s?.bullets) ? s.bullets.map(String) : [] };
+  return { title: plain(s?.title) || "Untitled slide", bullets: Array.isArray(s?.bullets) ? s.bullets.map(plain).filter(Boolean) : [] };
 }
 
 function normalizeTeam(t: Partial<TeamFormationResult>): TeamFormationResult {

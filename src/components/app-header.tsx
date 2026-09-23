@@ -9,6 +9,7 @@ import { Hint } from "@/components/hint";
 import { Logo } from "@/components/logo";
 import { cn } from "@/lib/utils";
 import { CURRENT_USER } from "@/lib/seed";
+import { useHydrated } from "@/lib/storage";
 
 export interface Crumb {
   label: string;
@@ -18,6 +19,9 @@ export interface Crumb {
 
 export function AppHeader({ crumbs = [] }: { crumbs?: Crumb[] }) {
   const { resolvedTheme, setTheme } = useTheme();
+  // The theme is only known in the browser; render its icon after hydration to avoid a mismatch.
+  const hydrated = useHydrated();
+  const dark = hydrated && resolvedTheme === "dark";
   return (
     <header className="no-print sticky top-0 z-40 flex h-[50px] shrink-0 items-center gap-2 border-b bg-background px-3 sm:gap-3 sm:px-4">
       <Link href="/" className="flex shrink-0 items-center gap-2" aria-label="ProposalPal home">
@@ -50,10 +54,10 @@ export function AppHeader({ crumbs = [] }: { crumbs?: Crumb[] }) {
             variant="ghost"
             size="icon"
             className="text-brand"
-            onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+            onClick={() => setTheme(dark ? "light" : "dark")}
             aria-label="Toggle theme"
           >
-            {resolvedTheme === "dark" ? <Sun /> : <Moon />}
+            {dark ? <Sun /> : <Moon />}
           </Button>
         </Hint>
         <Hint label="Help & support">

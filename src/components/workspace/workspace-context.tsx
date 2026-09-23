@@ -12,6 +12,7 @@ import {
 import { toast } from "sonner";
 import { forAI } from "@/components/proposal-setup";
 import { MODULE_MAP } from "@/lib/modules";
+import { storylineBookmarks } from "@/lib/bookmarks";
 import { readModuleContent, writeModuleContent } from "@/lib/storage";
 import type { ModuleContent, ModuleId, Proposal } from "@/lib/types";
 
@@ -43,6 +44,10 @@ interface WorkspaceState {
   /** Active chat thread id; null starts a new thread on the next message. */
   threadId: string | null;
   setThreadId: (id: string | null) => void;
+  /** Text quoted into the chat composer by "Ask AI" on a selection. */
+  chatQuote: string | null;
+  setChatQuote: (q: string | null) => void;
+  askAbout: (text: string) => void;
   tasks: Task[];
   isRunning: (mid: ModuleId, sectionId?: string) => boolean;
   errorFor: (mid: ModuleId) => string | undefined;
@@ -71,6 +76,7 @@ export function WorkspaceProvider({
   const [leftPanel, setLeftPanel] = useState<LeftPanel>("sources");
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(null);
+  const [chatQuote, setChatQuote] = useState<string | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const inFlight = useRef(new Map<string, Promise<void>>());
   const proposalRef = useRef(proposal);
@@ -130,6 +136,9 @@ export function WorkspaceProvider({
             mod.dependsOn,
             readModuleContent(pid, mod.dependsOn),
           );
+        // Team bookmarks steer the storyline toward the insights the team flagged.
+        const bookmarks = mid === "storyline" ? storylineBookmarks(pid) : [];
+        if (bookmarks.length) body.bookmarks = bookmarks;
 
         try {
           const res = await fetch(`/api/modules/${mid}`, {
@@ -174,6 +183,8 @@ export function WorkspaceProvider({
                 : undefined,
               team: data.team,
               polish: data.polish,
+              bookmarkIds:
+                mid === "storyline" ? bookmarks.map((b) => b.id) : undefined,
               generatedAt: Date.now(),
             };
           }
@@ -213,11 +224,17 @@ export function WorkspaceProvider({
       selected,
       select: setSelected,
       leftPanel,
-      setLeftPanel,
+      setLeftPanel: (p: LeftPanel) => {
+        setLeftPanel(p);
+        if (p) setShowBookmarks(false);
+      },
       showBookmarks,
       setShowBookmarks,
       threadId,
       setThreadId,
+      chatQuote,
+      setChatQuote,
+      askAbout: (text: string) => setChatQuote(text.trim().slice(0, 1500)),
       tasks,
       isRunning: (mid, sectionId) =>
         tasks.some(
@@ -234,6 +251,7 @@ export function WorkspaceProvider({
       leftPanel,
       showBookmarks,
       threadId,
+      chatQuote,
       tasks,
       generate,
       clear,

@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { FUNCTIONAL_PRACTICE_AREAS, INDUSTRY_PRACTICE_AREAS, MODULE_MAP, MODULES } from "@/lib/modules";
-import { readModuleContent, useChats, useStored } from "@/lib/storage";
+import { readModuleContent, useBookmarks, useChats, useStored } from "@/lib/storage";
 import type { Proposal } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { downloadText, moduleMarkdown, slug, useWorkspace } from "./workspace-context";
@@ -40,6 +40,7 @@ export function Toolbar() {
   const { proposal, selected, select, leftPanel, setLeftPanel, showBookmarks, setShowBookmarks, setThreadId, threadId, generate, isRunning, clear } =
     useWorkspace();
   const [threads, setThreads] = useChats(proposal.id);
+  const [bookmarks] = useBookmarks(proposal.id);
   const [darkChat, setDarkChat] = useStored<boolean>(DARK_CHAT_KEY, true);
   const mod = selected === "overview" ? null : MODULE_MAP[selected];
   const canRegenerate = mod && mod.kind !== "polish" && !isRunning(mod.id);
@@ -116,8 +117,15 @@ export function Toolbar() {
           <RefreshCw className={mod && isRunning(mod.id) ? "animate-spin" : ""} /> <span className="max-md:hidden">Regenerate</span>
         </Button>
         <Hint label="Toggle bookmarks panel">
-          <Button variant="ghost" className={cn("max-lg:hidden", showBookmarks && "bg-muted")} onClick={() => setShowBookmarks(!showBookmarks)}>
+          <Button variant="ghost" className={cn("max-lg:hidden", showBookmarks && "bg-muted")} onClick={() => {
+              // Make room: the bookmarks panel replaces the data sources panel on desktop.
+              if (!showBookmarks) setLeftPanel(null);
+              setShowBookmarks(!showBookmarks);
+            }}>
             <Bookmark /> Bookmarks
+            {bookmarks.length > 0 && (
+              <span className="rounded-full bg-brand px-1.5 text-[10px] leading-4 text-white">{bookmarks.length}</span>
+            )}
           </Button>
         </Hint>
         <DropdownMenu>

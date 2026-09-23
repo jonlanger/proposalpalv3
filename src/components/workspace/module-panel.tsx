@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   AlertCircle,
   Bookmark as BookmarkIcon,
@@ -22,7 +22,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { MODULE_MAP, type ModuleDef } from "@/lib/modules";
 import { PEOPLE_DIRECTORY } from "@/lib/seed";
-import { uid, useBookmarks, useModuleContent } from "@/lib/storage";
+import { useBookmarkActions, usesInStoryline } from "@/lib/bookmarks";
+import { useModuleContent } from "@/lib/storage";
 import type { ModuleContent, ModuleId, UploadedDoc } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { downloadText, moduleMarkdown, slug, useWorkspace } from "./workspace-context";
@@ -42,7 +43,7 @@ export function ModulePanel({ moduleId }: { moduleId: ModuleId }) {
   }, [moduleId]);
 
   return (
-    <BookmarkableArea moduleId={moduleId}>
+    <div className="relative h-full overflow-y-auto" data-module-id={moduleId}>
       <div className="flex items-center gap-2 border-b bg-background/80 px-5 py-3 backdrop-blur">
         <h2 className="flex-1 truncate font-semibold">{mod.title}</h2>
         {content && (
@@ -98,62 +99,6 @@ export function ModulePanel({ moduleId }: { moduleId: ModuleId }) {
         {mod.kind === "team" && <TeamView content={content} running={running} />}
         {mod.kind === "polish" && <PolishView content={content} running={running} />}
       </div>
-    </BookmarkableArea>
-  );
-}
-
-// ---- Bookmarking --------------------------------------------------------------
-
-function BookmarkableArea({ moduleId, children }: { moduleId: ModuleId; children: React.ReactNode }) {
-  const { proposal } = useWorkspace();
-  const [, setBookmarks] = useBookmarks(proposal.id);
-  const [pending, setPending] = useState<{ text: string; x: number; y: number } | null>(null);
-  const ref = useRef<HTMLDivElement>(null);
-
-  // Works for mouse drags and touch long-press selection alike: follow the document selection.
-  useEffect(() => {
-    let timer = 0;
-    const onChange = () => {
-      window.clearTimeout(timer);
-      timer = window.setTimeout(() => {
-        const el = ref.current;
-        const sel = window.getSelection();
-        const text = sel?.toString().trim() ?? "";
-        if (!el || !sel || sel.rangeCount === 0 || text.length <= 8 || !el.contains(sel.anchorNode)) {
-          setPending(null);
-          return;
-        }
-        const rect = sel.getRangeAt(0).getBoundingClientRect();
-        const box = el.getBoundingClientRect();
-        setPending({ text, x: rect.left + rect.width / 2 - box.left, y: rect.bottom - box.top + el.scrollTop });
-      }, 150);
-    };
-    document.addEventListener("selectionchange", onChange);
-    return () => {
-      window.clearTimeout(timer);
-      document.removeEventListener("selectionchange", onChange);
-    };
-  }, []);
-
-  return (
-    <div ref={ref} className="relative h-full overflow-y-auto">
-      {children}
-      {pending && (
-        <Button
-          size="sm"
-          className="absolute z-20 -translate-x-1/2 shadow-lg"
-          style={{ left: Math.max(60, pending.x), top: pending.y + 10 }}
-          onPointerDown={(e) => e.preventDefault()}
-          onClick={() => {
-            setBookmarks((b) => [{ id: uid(), text: pending.text, moduleId, createdAt: Date.now() }, ...b]);
-            window.getSelection()?.removeAllRanges();
-            setPending(null);
-            toast.success("Bookmark added");
-          }}
-        >
-          <BookmarkIcon /> Bookmark
-        </Button>
-      )}
     </div>
   );
 }
@@ -165,29 +110,61 @@ function Collapsible({
   loading,
   defaultOpen,
   actions,
+  bookmark,
   children,
 }: {
   title: string;
   loading?: boolean;
   defaultOpen?: boolean;
   actions?: React.ReactNode;
+  /** Makes the whole section bookmarkable. `text` is what gets saved. */
+  bookmark?: { moduleId: ModuleId; sectionId: string; text: string };
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(!!defaultOpen);
   return (
-    <div className={cn("rounded-lg border bg-card shadow-sm transition", loading && "bg-accent/30")}>
-      <div className="flex items-center gap-2 px-4 py-3.5">
+    <div
+      className={cn("rounded-lg border bg-card shadow-sm transition", loading && "bg-accent/30")}
+      data-section-id={bookmark?.sectionId}
+      data-section-title={title}
+    >
+      <div className="flex items-center gap-1 px-4 py-3.5">
         <button className="flex flex-1 items-center gap-2 text-left" onClick={() => setOpen(!open)} aria-expanded={open}>
           <span className="font-semibold">{title}</span>
           {loading && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
         </button>
+        {bookmark?.text && <SectionBookmark {...bookmark} title={title} />}
         {actions}
-        <button onClick={() => setOpen(!open)} aria-label={open ? "Collapse" : "Expand"} className="text-muted-foreground">
+        <button onClick={() => setOpen(!open)} aria-label={open ? "Collapse" : "Expand"} className="ml-1 text-muted-foreground">
           <ChevronDown className={cn("size-4 transition", open && "rotate-180")} />
         </button>
       </div>
-      {open && <div className="border-t px-4 py-4">{children}</div>}
+      {open && (
+        <div className="border-t px-4 py-4" data-selectable="module">
+          {children}
+        </div>
+      )}
     </div>
+  );
+}
+
+function SectionBookmark({ moduleId, sectionId, title, text }: { moduleId: ModuleId; sectionId: string; title: string; text: string }) {
+  const { proposal } = useWorkspace();
+  const { sectionBookmark, toggleSection } = useBookmarkActions(proposal.id);
+  const saved = !!sectionBookmark(moduleId, sectionId);
+  return (
+    <Hint label={saved ? "Remove bookmark" : "Bookmark this section"}>
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        aria-label={saved ? `Remove bookmark for ${title}` : `Bookmark ${title}`}
+        aria-pressed={saved}
+        className={cn(saved && "text-brand")}
+        onClick={() => toggleSection(moduleId, sectionId, title, text)}
+      >
+        <BookmarkIcon className={cn(saved && "fill-current")} />
+      </Button>
+    </Hint>
   );
 }
 
@@ -221,6 +198,7 @@ function SectionsView({ mod, content, running }: { mod: ModuleDef; content: Modu
             title={s.title}
             loading={(running && !text) || sectionRunning}
             defaultOpen={i === 0}
+            bookmark={text ? { moduleId: mod.id, sectionId: s.id, text } : undefined}
             actions={
               text && (
                 <>
@@ -272,6 +250,7 @@ function StorylineView({ mod, content, running }: { mod: ModuleDef; content: Mod
   }
   return (
     <>
+      <StorylineBookmarks content={content} />
       {storyline.map((section, si) => (
         <Collapsible key={section.name} title={section.name} defaultOpen={si === 0}>
           <ol className="space-y-3">
@@ -311,6 +290,42 @@ function StorylineView({ mod, content, running }: { mod: ModuleDef; content: Mod
   );
 }
 
+/** Shows how team bookmarks feed the storyline, and offers a rebuild when new ones arrive. */
+function StorylineBookmarks({ content }: { content: ModuleContent | null }) {
+  const { proposal, generate, isRunning, setShowBookmarks } = useWorkspace();
+  const { bookmarks } = useBookmarkActions(proposal.id);
+  const used = bookmarks.filter(usesInStoryline);
+  const fed = new Set(content?.bookmarkIds ?? []);
+  const fresh = used.filter((b) => !fed.has(b.id)).length;
+  const running = isRunning("storyline");
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-brand/30 bg-accent/40 px-4 py-3 text-sm">
+      <BookmarkIcon className="size-4 shrink-0 text-brand" />
+      <div className="min-w-0 flex-1">
+        {used.length === 0 ? (
+          <>Bookmark sections or highlighted insights in other modules, and they&apos;ll shape this storyline.</>
+        ) : (
+          <>
+            <span className="font-medium">
+              {fed.size ? `Built from ${fed.size} bookmark${fed.size === 1 ? "" : "s"}` : `${used.length} bookmark${used.length === 1 ? "" : "s"} ready`}
+            </span>
+            {fresh > 0 && fed.size > 0 && <span className="text-muted-foreground"> · {fresh} new since</span>}
+            <button className="ml-2 text-brand underline-offset-2 hover:underline max-lg:hidden" onClick={() => setShowBookmarks(true)}>
+              View
+            </button>
+          </>
+        )}
+      </div>
+      {used.length > 0 && (fresh > 0 || !fed.size) && (
+        <Button size="sm" disabled={running} onClick={() => generate("storyline")}>
+          {running ? <Loader2 className="animate-spin" /> : <RefreshCw />} Rebuild with bookmarks
+        </Button>
+      )}
+    </div>
+  );
+}
+
 // ---- Team formation ------------------------------------------------------------
 
 function TeamView({ content, running }: { content: ModuleContent | null; running: boolean }) {
@@ -319,11 +334,11 @@ function TeamView({ content, running }: { content: ModuleContent | null; running
   return (
     <>
       {team.summary && (
-        <div className="rounded-lg border bg-card p-4">
+        <div className="rounded-lg border bg-card p-4" data-selectable="module" data-section-title="Team summary">
           <Markdown>{team.summary}</Markdown>
         </div>
       )}
-      <div className="grid gap-3 xl:grid-cols-2">
+      <div className="grid gap-3 xl:grid-cols-2" data-selectable="module" data-section-title="Recommended team">
         {team.teamMembers.map((m) => {
           const person = PEOPLE_DIRECTORY.find((p) => p.name === m.name);
           return (
@@ -363,14 +378,14 @@ function TeamView({ content, running }: { content: ModuleContent | null; running
           );
         })}
       </div>
-      <Collapsible title="Suggested Roles" defaultOpen>
+      <Collapsible title="Suggested Roles" defaultOpen bookmark={{ moduleId: "team-formation", sectionId: "roles", text: bulletText(team.suggestedRoles) }}>
         <Bullets items={team.suggestedRoles} />
       </Collapsible>
-      <Collapsible title="Potential Gaps" defaultOpen>
+      <Collapsible title="Potential Gaps" defaultOpen bookmark={{ moduleId: "team-formation", sectionId: "gaps", text: bulletText(team.potentialGaps) }}>
         <Bullets items={team.potentialGaps} />
       </Collapsible>
       {team.capabilityInsights && (
-        <Collapsible title="Capability Insights">
+        <Collapsible title="Capability Insights" bookmark={{ moduleId: "team-formation", sectionId: "insights", text: team.capabilityInsights }}>
           <Markdown>{team.capabilityInsights}</Markdown>
         </Collapsible>
       )}
@@ -393,6 +408,8 @@ function Labeled({ label, items }: { label: string; items: string[] }) {
     </div>
   );
 }
+
+const bulletText = (items: string[]) => items.map((x) => `- ${x}`).join("\n");
 
 function Bullets({ items }: { items: string[] }) {
   if (!items.length) return <p className="text-sm text-muted-foreground">None identified.</p>;
@@ -456,7 +473,7 @@ function PolishView({ content, running }: { content: ModuleContent | null; runni
 
   return (
     <>
-      <div className="rounded-lg border bg-card p-4">
+      <div className="rounded-lg border bg-card p-4" data-selectable="module" data-section-title="Overall assessment">
         <div className="mb-2 flex items-center gap-3">
           <div className="text-3xl font-bold text-brand">{polish.score}</div>
           <div className="text-sm text-muted-foreground">/ 100 overall</div>
@@ -464,7 +481,16 @@ function PolishView({ content, running }: { content: ModuleContent | null; runni
         <Markdown>{polish.overallAssessment}</Markdown>
       </div>
       {polish.sections.map((s, i) => (
-        <Collapsible key={i} title={s.name} defaultOpen={i === 0}>
+        <Collapsible
+          key={i}
+          title={s.name}
+          defaultOpen={i === 0}
+          bookmark={{
+            moduleId: "polish-proposal",
+            sectionId: `polish-${i}`,
+            text: `Strengths:\n${bulletText(s.strengths)}\n\nGaps:\n${bulletText(s.gaps)}${s.rewrites.map((r) => `\n\nSuggested rewrite: ${r.after}`).join("")}`,
+          }}
+        >
           <div className="space-y-4 text-sm">
             <div>
               <div className="mb-1 font-medium text-brand">Strengths</div>

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   BookOpen,
+  Bookmark as BookmarkIcon,
   Bot,
   ChevronDown,
   DollarSign,
@@ -11,6 +12,7 @@ import {
   Loader2,
   Monitor,
   Paperclip,
+  Quote,
   Search,
   Send,
   Square,
@@ -20,6 +22,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useBookmarkActions } from "@/lib/bookmarks";
 import { extractDoc } from "@/components/file-drop";
 import { Hint } from "@/components/hint";
 import { Markdown } from "@/components/markdown";
@@ -43,7 +46,9 @@ const ICONS: Record<ModuleId, typeof Search> = {
 };
 
 export function ChatPanel() {
-  const { proposal, selected, select, isRunning, threadId, setThreadId, generate } = useWorkspace();
+  const { proposal, selected, select, isRunning, threadId, setThreadId, generate, chatQuote, setChatQuote } = useWorkspace();
+  const { add: addBookmark } = useBookmarkActions(proposal.id);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [threads, setThreads] = useChats(proposal.id);
   const [gridOpen, setGridOpen] = useState(true);
   const [input, setInput] = useState("");
@@ -57,6 +62,10 @@ export function ChatPanel() {
   const thread = threads.find((t) => t.id === threadId);
   const messages = thread?.messages ?? [];
   const mod = selected === "overview" ? null : MODULE_MAP[selected];
+
+  useEffect(() => {
+    if (chatQuote) textareaRef.current?.focus();
+  }, [chatQuote]);
 
   useEffect(() => {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" });
@@ -73,8 +82,13 @@ export function ChatPanel() {
   }
 
   async function send() {
-    const text = input.trim();
-    if ((!text && !attachment) || streaming !== null) return;
+    const typed = input.trim();
+    if ((!typed && !attachment && !chatQuote) || streaming !== null) return;
+    // "Ask AI" on highlighted text arrives as a quote above the question.
+    const text = chatQuote
+      ? `${chatQuote.split("\n").map((l) => `> ${l}`).join("\n")}\n\n${typed || "Tell me more about this, and how it could strengthen the proposal."}`
+      : typed;
+    setChatQuote(null);
     const id = threadId ?? uid();
     if (!threadId) setThreadId(id);
 
@@ -85,7 +99,7 @@ export function ChatPanel() {
       createdAt: Date.now(),
     };
     const history = [...messages, userMsg];
-    saveMessages(id, history, text.slice(0, 60) || attachment?.name);
+    saveMessages(id, history, (typed || chatQuote || "").slice(0, 60) || attachment?.name);
     setInput("");
     const file = attachment;
     setAttachment(null);
@@ -167,7 +181,7 @@ export function ChatPanel() {
     : `Let's build a compelling proposal for **${proposal.clientName.replace(/\.$/, "")}**.\n\n${OVERVIEW_INTRO}`;
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background">
+    <div className="flex h-full min-h-0 flex-col bg-background" data-module-id={selected}>
       {/* Module grid */}
       <div className="border-b px-4 pb-3 pt-3">
         <div className="flex items-center gap-2">
@@ -211,11 +225,21 @@ export function ChatPanel() {
           <h3 className="mb-2 text-xl font-semibold leading-tight">{welcomeTitle}</h3>
           <Markdown>{welcomeBody}</Markdown>
         </Bubble>
-        {messages.map((m) => (
-          <Bubble key={m.id} role={m.role}>
-            {m.role === "assistant" ? <Markdown>{m.content}</Markdown> : <p className="whitespace-pre-wrap text-sm">{m.content}</p>}
-          </Bubble>
-        ))}
+        {messages.map((m) =>
+          m.role === "assistant" ? (
+            <Bubble
+              key={m.id}
+              role="assistant"
+              onBookmark={() => addBookmark({ text: m.content, moduleId: selected, sectionTitle: "Chat reply", source: "chat" })}
+            >
+              <Markdown>{m.content}</Markdown>
+            </Bubble>
+          ) : (
+            <Bubble key={m.id} role="user">
+              <Markdown className="text-white [&_blockquote]:border-white/50 [&_blockquote]:text-white/80">{m.content}</Markdown>
+            </Bubble>
+          ),
+        )}
         {streaming !== null && (
           <Bubble role="assistant">
             {streaming ? <Markdown>{streaming}</Markdown> : <Loader2 className="size-4 animate-spin text-muted-foreground" />}
@@ -226,6 +250,15 @@ export function ChatPanel() {
       {/* Composer */}
       <div className="p-3">
         <div className="rounded-xl border bg-card p-2 focus-within:border-brand-bright">
+          {chatQuote && (
+            <div className="mb-2 flex items-start gap-2 rounded-md border-l-2 border-brand-bright bg-muted px-2 py-1.5 text-xs">
+              <Quote className="mt-0.5 size-3.5 shrink-0 text-brand-bright" />
+              <span className="line-clamp-3 flex-1">{chatQuote}</span>
+              <button onClick={() => setChatQuote(null)} aria-label="Remove quote">
+                <X className="size-3.5" />
+              </button>
+            </div>
+          )}
           {attachment && (
             <div className="mb-2 flex items-center gap-2 rounded-md bg-muted px-2 py-1 text-xs">
               <Paperclip className="size-3.5" />
@@ -236,6 +269,7 @@ export function ChatPanel() {
             </div>
           )}
           <textarea
+            ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
@@ -245,7 +279,13 @@ export function ChatPanel() {
               }
             }}
             rows={2}
-            placeholder={selected === "polish-proposal" ? "Attach a draft proposal or ask me anything..." : "Ask me anything..."}
+            placeholder={
+              chatQuote
+                ? "Ask about the highlighted text…"
+                : selected === "polish-proposal"
+                  ? "Attach a draft proposal or ask me anything..."
+                  : "Ask me anything..."
+            }
             className="w-full resize-none bg-transparent px-1 text-sm outline-none placeholder:text-muted-foreground"
           />
           <div className="flex items-center justify-between">
@@ -269,7 +309,7 @@ export function ChatPanel() {
                 <Square className="fill-current" />
               </Button>
             ) : (
-              <Button size="icon" onClick={send} disabled={!input.trim() && !attachment} aria-label="Send">
+              <Button size="icon" onClick={send} disabled={!input.trim() && !attachment && !chatQuote} aria-label="Send">
                 <Send />
               </Button>
             )}
@@ -280,7 +320,7 @@ export function ChatPanel() {
   );
 }
 
-function Bubble({ role, children }: { role: "user" | "assistant"; children: React.ReactNode }) {
+function Bubble({ role, children, onBookmark }: { role: "user" | "assistant"; children: React.ReactNode; onBookmark?: () => void }) {
   if (role === "user") {
     return (
       <div className="flex justify-end">
@@ -293,7 +333,19 @@ function Bubble({ role, children }: { role: "user" | "assistant"; children: Reac
       <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-brand text-white">
         <Bot className="size-4" />
       </span>
-      <div className="min-w-0 max-w-[85%] rounded-xl bg-muted px-3.5 py-3">{children}</div>
+      <div className="group/bubble min-w-0 max-w-[85%]">
+        <div className="rounded-xl bg-muted px-3.5 py-3" data-selectable="chat">
+          {children}
+        </div>
+        {onBookmark && (
+          <button
+            onClick={onBookmark}
+            className="mt-1 flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground opacity-0 transition hover:text-brand-bright group-hover/bubble:opacity-100 [@media(hover:none)]:opacity-100"
+          >
+            <BookmarkIcon className="size-3.5" /> Bookmark reply
+          </button>
+        )}
+      </div>
     </div>
   );
 }
