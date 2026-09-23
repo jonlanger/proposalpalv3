@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ArrowDownUp, EllipsisVertical, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/app-header";
@@ -35,6 +35,9 @@ export default function HomePage() {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<Sort>("updated");
   const [areas, setAreas] = useState<string[]>([]);
+  // Dots fade behind the subtitle so it stays readable.
+  const subtitleRef = useRef<HTMLParagraphElement>(null);
+  const [heroQuiet] = useState(() => [subtitleRef]);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -65,6 +68,7 @@ export default function HomePage() {
           dotSize={2.5}
           proximity={140}
           shockRadius={220}
+          quietZones={heroQuiet}
           className="[mask-image:radial-gradient(ellipse_at_center,black_35%,transparent_85%)]"
         />
         <div className="relative mx-auto flex max-w-4xl flex-col items-center px-4 py-12 text-center sm:py-16">
@@ -73,7 +77,7 @@ export default function HomePage() {
             <br />
             ProposalPal
           </h1>
-          <p className="mt-5 max-w-xl text-base text-muted-foreground sm:text-lg">
+          <p ref={subtitleRef} className="mt-5 max-w-xl text-base text-muted-foreground sm:text-lg">
             Your one-stop AI proposal partner that unifies research, content, teaming, and commercial strategy to
             create a winning proposal.
           </p>

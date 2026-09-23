@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { type RefObject, useEffect, useRef } from "react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 
@@ -27,7 +27,15 @@ interface Props {
   shockStrength?: number;
   /** Listen for pointer events on the window instead of the parent element. */
   global?: boolean;
+  /** Elements (e.g. body text) behind which dots fade, so text stays readable. */
+  quietZones?: RefObject<HTMLElement | null>[];
+  /** Dot opacity at the center of a quiet zone (0–1). */
+  quietOpacity?: number;
 }
+
+/** Quiet zone padding and soft-edge width, in px. */
+const QUIET_PAD = 16;
+const QUIET_FEATHER = 36;
 
 interface Dot {
   x: number;
@@ -73,6 +81,8 @@ export function DotGrid({
   shockRadius = 180,
   shockStrength = 4,
   global = false,
+  quietZones,
+  quietOpacity = 0.15,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { resolvedTheme } = useTheme();
@@ -92,11 +102,32 @@ export function DotGrid({
     let raf = 0;
     let visible = true;
     const pointer = { x: -9999, y: -9999, vx: 0, vy: 0, t: 0, inside: false };
+    let zones: { l: number; t: number; r: number; b: number }[] = [];
+
+    // Opacity for a dot: quietOpacity inside a zone, easing to 1 across the feather band.
+    const alphaAt = (x: number, y: number) => {
+      let a = 1;
+      for (const z of zones) {
+        const dx = Math.max(z.l - x, 0, x - z.r);
+        const dy = Math.max(z.t - y, 0, y - z.b);
+        const d = Math.hypot(dx, dy);
+        if (d >= QUIET_FEATHER) continue;
+        const k = d / QUIET_FEATHER;
+        a = Math.min(a, quietOpacity + (1 - quietOpacity) * k * k * (3 - 2 * k));
+      }
+      return a;
+    };
 
     const build = () => {
       const rect = host.getBoundingClientRect();
       width = rect.width;
       height = rect.height;
+      zones = (quietZones ?? []).flatMap((ref) => {
+        const el = ref.current;
+        if (!el) return [];
+        const z = el.getBoundingClientRect();
+        return [{ l: z.left - rect.left - QUIET_PAD, t: z.top - rect.top - QUIET_PAD, r: z.right - rect.left + QUIET_PAD, b: z.bottom - rect.top + QUIET_PAD }];
+      });
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       canvas.width = Math.round(width * dpr);
       canvas.height = Math.round(height * dpr);
@@ -146,6 +177,7 @@ export function DotGrid({
           fill = `rgb(${br},${bg},${bb})`;
         }
         ctx.fillStyle = fill;
+        ctx.globalAlpha = zones.length ? alphaAt(px, py) : 1;
         ctx.beginPath();
         ctx.arc(px, py, d.r, 0, Math.PI * 2);
         ctx.fill();
@@ -245,6 +277,7 @@ export function DotGrid({
 
     const ro = new ResizeObserver(build);
     ro.observe(host);
+    for (const ref of quietZones ?? []) if (ref.current) ro.observe(ref.current);
     const io = new IntersectionObserver(([entry]) => {
       visible = entry.isIntersecting;
       if (!visible && raf) {
@@ -264,7 +297,7 @@ export function DotGrid({
       io.disconnect();
       if (raf) cancelAnimationFrame(raf);
     };
-  }, [dotSize, gap, proximity, density, seed, sizeJitter, fadeAngle, shockRadius, shockStrength, global, theme]);
+  }, [dotSize, gap, proximity, density, seed, sizeJitter, fadeAngle, shockRadius, shockStrength, global, theme, quietZones, quietOpacity]);
 
   return <canvas ref={canvasRef} aria-hidden className={cn("pointer-events-none absolute inset-0", className)} />;
 }
