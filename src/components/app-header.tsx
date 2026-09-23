@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, House, LifeBuoy, Moon, Pencil, Sun } from "lucide-react";
+import { ChevronRight, FileText, House, LifeBuoy, Moon, Pencil, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -18,9 +18,10 @@ export function AppHeader({ crumbs = [] }: { crumbs?: Crumb[] }) {
   const { resolvedTheme, setTheme } = useTheme();
   return (
     <header className="no-print sticky top-0 z-40 flex h-[50px] shrink-0 items-center gap-3 border-b bg-background px-4">
-      <Link href="/" className="flex items-center gap-3">
-        <span className="text-[22px] font-black leading-none tracking-tighter text-brand">BCG</span>
-        <span className="h-5 w-px bg-border" />
+      <Link href="/" className="flex items-center gap-2.5">
+        <span className="flex size-7 items-center justify-center rounded-md bg-brand text-white" aria-hidden>
+          <FileText className="size-4" strokeWidth={2.25} />
+        </span>
         <span className="font-semibold">ProposalPal</span>
       </Link>
       <nav className="flex min-w-0 items-center gap-2 text-sm">
