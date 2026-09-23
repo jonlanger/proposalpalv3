@@ -7,7 +7,7 @@ import type { Person, PolishAnalysis, Proposal, Slide, StorylineSection, TeamFor
  * UI behaves end-to-end without any model; every block is labelled as sample content.
  */
 
-const NOTE = "> _Demo mode: sample content. Set a `GROQ_API_KEY` (or another provider) to generate real analysis._";
+const NOTE = "> _Demo mode: sample content. Add a `GEMINI_API_KEY` to generate real analysis, then click Regenerate._";
 
 const client = (p: Partial<Proposal>) => p.clientName || "the client";
 const topic = (p: Partial<Proposal>) => p.proposalName || "this engagement";
