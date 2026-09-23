@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ProposalPal
 
-## Getting Started
+AI proposal partner: client research, engagement planning, team formation, topic research, storyline, commercial approach, draft review and pitch practice, in one workspace. A rebuild of proposalpal-v2 on Next.js 16, Tailwind v4 and shadcn/ui (Base UI).
 
-First, run the development server:
+## Run it
 
 ```bash
+npm install
+cp .env.example .env.local   # add your GEMINI_API_KEY, or leave it empty for demo mode
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## AI providers
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+All providers go through one OpenAI-compatible client in `src/lib/ai/provider.ts`. Choose one with `AI_PROVIDER`:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Provider | Cost | Setup | Notes |
+|---|---|---|---|
+| `gemini` (default when `GEMINI_API_KEY` is set) | Paid or free tier | Key from aistudio.google.com | `GEMINI_MODEL` defaults to `gemini-3.8-flash` |
+| `groq` | Free tier | Key from console.groq.com | Default model `openai/gpt-oss-120b`; override with `GROQ_MODEL` |
+| `ollama` | Free, local | Install Ollama, `ollama pull llama3.1` | Data never leaves your machine; doesn't work on Vercel |
+| `demo` (default with no key) | Free | None | Sample content, no AI |
 
-## Learn More
+Free hosted tiers are rate-limited and may use prompts for training. Don't send confidential client material through them.
 
-To learn more about Next.js, take a look at the following resources:
+## Knowledge base and demo proposals
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+`src/data/` holds research that grounds the AI and pre-fills the demos:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `companies.ts`: public profiles of Walmart, Ford, Pfizer, JPMorgan Chase and 7-Eleven (financials, segments, leadership, priorities, sources), summarized from SEC filings and company releases as of September 2026. When a proposal's client matches one, the profile is added to every AI prompt.
+- `playbooks.ts`: consulting best practices (Pyramid Principle/SCQA and action titles, BCG transformation research and the 10-20-70 rule, pricing models, engagement and pitch prep) and paraphrased public case studies from BCG, Bain and McKinsey, all linked. Relevant entries are added to each module's prompts.
+- `demos/`: five demo proposals with all 8 modules pre-filled, so they open without any AI call. Stakeholder views, fees and value estimates in the demos are illustrative.
 
-## Deploy on Vercel
+To add a client, add a profile to `companies.ts`. To add a demo, add a file in `demos/` and list it in `demos/index.ts`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Data
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Proposals, generated content, chats, bookmarks and data sources are stored in the browser's `localStorage` (`src/lib/storage.ts`). Nothing is stored on the server. Uploaded PDF/DOCX/TXT files are converted to text by `/api/extract`, and excerpts are sent to the AI as context.
+
+## Layout
+
+- `src/app` – pages (`/`, `/new-proposal`, `/proposal/[id]/{setup,dashboard,print}`, `/help`) and API routes
+- `src/lib/modules.ts` – the 8 workspace modules and their sections (edit here to change what gets generated)
+- `src/lib/ai/prompts.ts` – prompts; `demo.ts` – demo-mode content
+- `src/components/workspace` – workspace panels (data sources, chat, module content, bookmarks, toolbar)
+
+## Deploy to Vercel
+
+Import the repo in Vercel, then under **Settings → Environment Variables** add `AI_PROVIDER=gemini` and `GEMINI_API_KEY`. `GEMINI_MODEL` is optional. Redeploy after changing variables.
