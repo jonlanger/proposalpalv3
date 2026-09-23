@@ -79,7 +79,8 @@ async function request(cfg: ProviderConfig, opts: RequestOptions, optional = tru
     model: cfg.model,
     messages: opts.messages,
     temperature: opts.temperature ?? 0.5,
-    max_tokens: opts.maxTokens ?? 4096,
+    // Gemini counts "thinking" tokens against max_tokens, so give it headroom for the answer itself.
+    max_tokens: cfg.name === "gemini" ? Math.max(opts.maxTokens ?? 4096, 8192) : (opts.maxTokens ?? 4096),
     stream: !!opts.stream,
   };
   if (optional) {
@@ -166,28 +167,48 @@ export async function streamText(opts: Omit<RequestOptions, "stream" | "json">):
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
   let buffer = "";
+  let emitted = false;
+  let finishReason: string | undefined;
+  let upstreamError: string | undefined;
 
   return new ReadableStream({
+    // Keep reading until there is text to hand over; a pull that enqueues nothing can stall the stream.
     async pull(controller) {
-      const { done, value } = await reader.read();
-      if (done) {
-        controller.close();
-        return;
-      }
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed.startsWith("data:")) continue;
-        const payload = trimmed.slice(5).trim();
-        if (payload === "[DONE]") continue;
-        try {
-          const delta = JSON.parse(payload)?.choices?.[0]?.delta?.content;
-          if (delta) controller.enqueue(encoder.encode(delta));
-        } catch {
-          // Ignore keep-alive or partial lines.
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) {
+          if (!emitted) {
+            // Surface empty answers instead of ending silently (e.g. the output budget went to reasoning).
+            const why = finishReason === "length" ? "it ran out of output tokens while reasoning" : `finish reason: ${finishReason ?? "none"}`;
+            controller.enqueue(encoder.encode(upstreamError ?? `⚠️ The model returned no text (${why}). Please try again.`));
+          }
+          controller.close();
+          return;
         }
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        let sent = false;
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith("data:")) continue;
+          const payload = trimmed.slice(5).trim();
+          if (payload === "[DONE]") continue;
+          try {
+            const json = JSON.parse(payload);
+            if (json?.error) upstreamError = `⚠️ ${cfg.name} error: ${json.error.message ?? JSON.stringify(json.error)}`;
+            const choice = json?.choices?.[0];
+            if (choice?.finish_reason) finishReason = choice.finish_reason;
+            const delta = choice?.delta?.content;
+            if (delta) {
+              controller.enqueue(encoder.encode(delta));
+              emitted = sent = true;
+            }
+          } catch {
+            // Ignore keep-alive or partial lines.
+          }
+        }
+        if (sent) return;
       }
     },
     cancel() {

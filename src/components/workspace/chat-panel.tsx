@@ -126,6 +126,17 @@ export function ChatPanel() {
     abort.current = controller;
     setStreaming("");
     let reply = "";
+    // Give up if nothing arrives for a while, rather than showing the stop button forever.
+    let stalled = false;
+    let idle = 0;
+    const resetIdle = () => {
+      window.clearTimeout(idle);
+      idle = window.setTimeout(() => {
+        stalled = true;
+        controller.abort();
+      }, 90_000);
+    };
+    resetIdle();
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -150,12 +161,17 @@ export function ChatPanel() {
         if (done) break;
         reply += decoder.decode(value, { stream: true });
         setStreaming(reply);
+        resetIdle();
       }
+      if (!reply.trim()) reply = "⚠️ **No response received.** The AI returned an empty answer. Please try again.";
     } catch (err) {
-      if ((err as Error).name !== "AbortError") {
+      if (stalled) {
+        reply = `${reply}\n\n⚠️ **The AI stopped responding.** Please try again in a moment.`.trim();
+      } else if ((err as Error).name !== "AbortError") {
         reply = `⚠️ **Error:** ${(err as Error).message}`;
       }
     } finally {
+      window.clearTimeout(idle);
       setStreaming(null);
       abort.current = null;
       if (reply) saveMessages(id, [...history, { id: uid(), role: "assistant", content: reply, createdAt: Date.now() }]);
@@ -242,7 +258,13 @@ export function ChatPanel() {
         )}
         {streaming !== null && (
           <Bubble role="assistant">
-            {streaming ? <Markdown>{streaming}</Markdown> : <Loader2 className="size-4 animate-spin text-muted-foreground" />}
+            {streaming ? (
+              <Markdown>{streaming}</Markdown>
+            ) : (
+              <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" /> Thinking…
+              </span>
+            )}
           </Bubble>
         )}
       </div>
